@@ -1,0 +1,15 @@
+/* 阿里巴巴普惠体 3.0 —— 55 Regular / 85 Bold，GB18030 实现级别1+2 */
+@font-face {
+  font-family: "XHSPuHuiTi";
+  src: url("./AlibabaPuHuiTi-3-55-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "XHSPuHuiTi";
+  src: url("./AlibabaPuHuiTi-3-85-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

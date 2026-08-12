@@ -1,0 +1,90 @@
+/* 编辑器样式 —— scope 到 .xhs-editor，不污染 .xhs-card 卡片命名空间 */
+.xhs-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.xhs-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+.xhs-editor .ProseMirror {
+  min-height: 320px;
+  max-height: calc(100vh - 230px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.xhs-editor .ProseMirror:focus {
+  border-color: var(--ring);
+}
+.xhs-editor .ProseMirror h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+}
+.xhs-editor .ProseMirror h2 {
+  font-size: 1.3em;
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+}
+.xhs-editor .ProseMirror h3 {
+  font-size: 1.12em;
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+}
+.xhs-editor .ProseMirror p {
+  margin: 0 0 0.5em;
+}
+.xhs-editor .ProseMirror ul,
+.xhs-editor .ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0 0 0.5em;
+}
+.xhs-editor .ProseMirror ul {
+  list-style: disc;
+}
+.xhs-editor .ProseMirror ol {
+  list-style: decimal;
+}
+.xhs-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+  margin: 0 0 0.5em;
+}
+.xhs-editor .ProseMirror code {
+  background: var(--muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+.xhs-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+.xhs-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.5em 0;
+}
+.xhs-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

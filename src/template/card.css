@@ -1,0 +1,136 @@
+/* 卡片模板样式 —— 命名空间 .xhs-*，所有属性显式设定，不依赖 Tailwind preflight。
+   v2：去掉序号方块和右下水印。可调项走 CSS 变量。 */
+.xhs-card {
+  position: relative;
+  width: 1080px;
+  height: 1440px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #1a1a1a;
+  /* 不在这里设 font-family —— 强制由 makeCssVars 输出 inline fontFamily 字面量 */
+  font-synthesis: none;
+  font-weight: 400;
+  font-size: var(--xhs-body-size, 36px);
+  line-height: var(--xhs-line-height, 1.9);
+  letter-spacing: var(--xhs-letter-spacing, 0px);
+  overflow: hidden;
+  padding:
+    var(--xhs-pad-top, 96px)
+    var(--xhs-pad-right, 80px)
+    var(--xhs-pad-bottom, 120px)
+    var(--xhs-pad-left, 80px);
+  margin: 0;
+}
+
+.xhs-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 0 0 40px;
+}
+.xhs-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef2f7;
+  flex: none;
+}
+.xhs-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.xhs-username-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.xhs-username {
+  font-size: 40px;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.xhs-verified {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: inline-block;
+}
+.xhs-sub {
+  font-size: 28px;
+  color: #999;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.xhs-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.xhs-h {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 28px 0 18px;
+}
+.xhs-h-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-size: 44px;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.25;
+}
+.xhs-h[data-level='3'] .xhs-h-text {
+  font-size: 38px;
+}
+
+.xhs-p {
+  margin: 0 0 22px;
+  text-align: left;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+.xhs-p strong {
+  font-weight: 700;
+}
+.xhs-p em {
+  font-style: normal;
+  color: #555;
+}
+.xhs-p code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  background: #f4f3ec;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.9em;
+}
+
+.xhs-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  margin: 6px 0 24px;
+}
+
+.xhs-quote {
+  border-left: 6px solid #e6f0fb;
+  padding: 4px 0 4px 24px;
+  margin: 0 0 22px;
+  color: #555;
+}
+.xhs-list {
+  margin: 0 0 22px;
+  padding-left: 40px;
+}
+.xhs-list li {
+  margin-bottom: 10px;
+}
