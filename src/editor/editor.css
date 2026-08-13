@@ -88,3 +88,17 @@
   height: 0;
   pointer-events: none;
 }
+/* 文字颜色选择器弹出层 */
+.xhs-color-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  width: 196px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}

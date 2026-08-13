@@ -2,6 +2,7 @@
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import type { Extensions } from '@tiptap/core'
+import { ColorMark } from './colorMark'
 
 export const extensions: Extensions = [
   StarterKit.configure({
@@ -13,4 +14,5 @@ export const extensions: Extensions = [
     trailingNode: false,
   }),
   Image.configure({ inline: false, allowBase64: true }),
+  ColorMark,
 ]

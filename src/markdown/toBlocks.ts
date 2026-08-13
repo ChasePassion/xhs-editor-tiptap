@@ -3,7 +3,7 @@
 import type { JSONContent } from '@tiptap/core'
 import type { ContentBlock, InlineNode } from './types'
 
-const SUPPORTED_MARKS = new Set(['bold', 'italic', 'code'])
+const SUPPORTED_MARKS = new Set(['bold', 'italic', 'code', 'textColor'])
 
 function inlineFromContent(nodes: JSONContent[] = []): InlineNode[] {
   const out: InlineNode[] = []
@@ -16,12 +16,15 @@ function inlineFromContent(nodes: JSONContent[] = []): InlineNode[] {
         }
       }
       const ms = new Set(marks.map((m) => m.type))
+      const colorMark = marks.find((m) => m.type === 'textColor')
+      const color = colorMark?.attrs?.color as string | undefined
       out.push({
         type: 'text',
         text: n.text ?? '',
         bold: ms.has('bold'),
         italic: ms.has('italic'),
         code: ms.has('code'),
+        ...(color ? { color } : {}),
       })
     } else if (n.type === 'hardBreak') {
       out.push({ type: 'break' })

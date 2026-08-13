@@ -3,6 +3,7 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import type { JSONContent } from '@tiptap/core'
 import { marked } from 'marked'
 import { extensions } from './extensions'
+import { ColorControl } from './ColorControl'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -67,11 +68,29 @@ function tokenToBlock(tok: any): JSONContent | null {
   }
 }
 // inlineToMarks：把 marked 的 inline 解析结果简化成一个或多个 text 节点（带 marks）。
-// 简化版：只识别 **...** 加粗、*...* 斜体、`...` 行内代码。
+// 识别 **...** 加粗、*...* 斜体、`...` 行内代码，以及 <font style="color:...">...</font> 文字颜色。
 function inlineToMarks(text: string): JSONContent[] {
   const out: JSONContent[] = []
   let rest = text
   while (rest.length) {
+    // 先识别 <font ...>...</font>：内部递归解析加粗/斜体/代码，再把颜色 mark 叠加到每个 text 节点
+    const fm = rest.match(/^<font\b([^>]*)>([\s\S]*?)<\/font>\s*/i)
+    if (fm) {
+      const attrs = fm[1]
+      const cm =
+        attrs.match(/color\s*:\s*([^;"'>]+)/i) ||
+        attrs.match(/\bcolor\s*=\s*["']?([^"'>\s]+)/i)
+      const color = cm?.[1]?.trim().replace(/;$/, '')
+      const innerNodes = inlineToMarks(fm[2])
+      if (color) {
+        for (const n of innerNodes) {
+          if (n.type === 'text') n.marks = [...(n.marks ?? []), { type: 'textColor', attrs: { color } }]
+        }
+      }
+      out.push(...innerNodes)
+      rest = rest.slice(fm[0].length)
+      continue
+    }
     const m = rest.match(/^(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/)
     if (m) {
       if (m[2] !== undefined) out.push({ type: 'text', text: m[2], marks: [{ type: 'bold' }] })
@@ -79,8 +98,8 @@ function inlineToMarks(text: string): JSONContent[] {
       else if (m[4] !== undefined) out.push({ type: 'text', text: m[4], marks: [{ type: 'code' }] })
       rest = rest.slice(m[0].length)
     } else {
-      // 找下一处 **/*/`
-      const next = rest.search(/[\*`]/)
+      // 找下一处 **/*/`/<
+      const next = rest.search(/[`*<]/)
       const take = next < 0 ? rest.length : next === 0 ? 1 : next
       out.push({ type: 'text', text: rest.slice(0, take), marks: [] })
       rest = rest.slice(take)
@@ -108,13 +127,16 @@ function blockToMd(node: JSONContent): string {
       return ''
   }
 }
-function inlineToMd(nodes: { text?: string; marks?: { type: string }[] }[]): string {
+function inlineToMd(nodes: { text?: string; marks?: { type: string; attrs?: Record<string, unknown> }[] }[]): string {
   return nodes
     .map((n) => {
       const t = n.text ?? ''
       const ms = new Set((n.marks ?? []).map((m) => m.type))
+      const colorMark = (n.marks ?? []).find((m) => m.type === 'textColor')
+      const color = colorMark?.attrs?.color as string | undefined
       if (ms.has('code')) return '`' + t + '`'
-      const wrapped = (ms.has('bold') ? '**' : '') + (ms.has('italic') ? '*' : '') + t + (ms.has('italic') ? '*' : '') + (ms.has('bold') ? '**' : '')
+      let wrapped = (ms.has('bold') ? '**' : '') + (ms.has('italic') ? '*' : '') + t + (ms.has('italic') ? '*' : '') + (ms.has('bold') ? '**' : '')
+      if (color) wrapped = `<font style="color:${color}">${wrapped}</font>`
       return wrapped
     })
     .join('')
@@ -182,6 +204,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
       bullet: editor.isActive('bulletList'),
       ordered: editor.isActive('orderedList'),
       quote: editor.isActive('blockquote'),
+      color: editor.getAttributes('textColor').color as string | undefined,
     }),
     equalityFn: undefined,
   })
@@ -239,6 +262,11 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
             <Button size="sm" variant={sel.code ? 'default' : 'outline'} onClick={() => editor.chain().focus().toggleCode().run()}>
               <Code />
             </Button>
+            <ColorControl
+              color={sel.color}
+              onColor={(c) => editor.chain().focus().setColor(c).run()}
+              onClear={() => editor.chain().focus().unsetColor().run()}
+            />
             <Button size="sm" variant={sel.bullet ? 'default' : 'outline'} onClick={() => editor.chain().focus().toggleBulletList().run()}>
               <List />
             </Button>

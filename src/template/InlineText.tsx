@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { InlineNode } from '@/markdown/types'
 
-type TextRun = { text: string; bold?: boolean; italic?: boolean; code?: boolean }
+type TextRun = { text: string; bold?: boolean; italic?: boolean; code?: boolean; color?: string }
 
 // 字体族和 font-synthesis 必须内联，供截图克隆层稳定读取；普通文字的字重必须继承
 // 上下文，否则标题父层的 700 会被叶子节点错误覆盖成 400。
@@ -39,7 +39,7 @@ export function InlineText({ nodes, fontFamily }: { nodes: InlineNode[]; fontFam
         n.type === 'break' ? (
           <br key={i} />
         ) : (
-          <span key={i} style={{ ...baseStyle, fontFamily }}>
+          <span key={i} style={{ ...baseStyle, fontFamily, ...(n.color ? { color: n.color } : {}) }}>
             {renderText(n, fontFamily)}
           </span>
         ),

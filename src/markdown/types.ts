@@ -1,7 +1,7 @@
 // 内容数据模型 —— v2.1：InlineNode 用扁平 TextRun（适配 tiptap marks 扁平数组）
 
 export type InlineNode =
-  | { type: 'text'; text: string; bold?: boolean; italic?: boolean; code?: boolean }
+  | { type: 'text'; text: string; bold?: boolean; italic?: boolean; code?: boolean; color?: string }
   | { type: 'break' }
 
 export type ContentBlock =
