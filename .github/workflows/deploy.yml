@@ -37,25 +37,27 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Setup SSH key
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-
       - name: Deploy to server (rsync)
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          rsync -az --delete --stats \
-            -e "ssh -p $SSH_PORT -i ~/.ssh/id_ed25519" \
-            dist/ \
-            "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # 服务器 22 端口对外开放，常遭 SSH 爆破，sshd 在负载下会间歇性丢弃连接。
+          # 因此 ssh 自带连接重试(ConnectionAttempts)，外层再对 rsync 多次重试。
+          SSH_CMD="ssh -p $SSH_PORT -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -o ConnectionAttempts=5 -o ConnectTimeout=20 -o ServerAliveInterval=5"
+          for i in 1 2 3 4 5; do
+            if rsync -az --delete --stats -e "$SSH_CMD" dist/ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"; then
+              echo "✓ 部署成功 (第 $i 次尝试)"
+              exit 0
+            fi
+            echo "⚠ rsync 第 $i 次失败，5s 后重试..." >&2
+            sleep 5
+          done
+          echo "✗ rsync 多次重试仍失败" >&2
+          exit 1
