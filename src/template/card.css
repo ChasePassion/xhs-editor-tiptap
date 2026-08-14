@@ -88,6 +88,9 @@
   color: #000;
   line-height: 1.25;
 }
+.xhs-h[data-level='1'] .xhs-h-text {
+  font-size: 54px;
+}
 .xhs-h[data-level='3'] .xhs-h-text {
   font-size: 38px;
 }

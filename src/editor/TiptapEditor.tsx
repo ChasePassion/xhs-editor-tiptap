@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Bold,
   Code,
+  Heading1,
   Heading2,
   Heading3,
   ImagePlus,
@@ -199,6 +200,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
       bold: editor.isActive('bold'),
       italic: editor.isActive('italic'),
       code: editor.isActive('code'),
+      h1: editor.isActive('heading', { level: 1 }),
       h2: editor.isActive('heading', { level: 2 }),
       h3: editor.isActive('heading', { level: 3 }),
       bullet: editor.isActive('bulletList'),
@@ -247,6 +249,9 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
       <div className="xhs-editor-toolbar">
         {mode === 'rich' ? (
           <>
+            <Button size="sm" variant={sel.h1 ? 'default' : 'outline'} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+              <Heading1 />
+            </Button>
             <Button size="sm" variant={sel.h2 ? 'default' : 'outline'} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
               <Heading2 />
             </Button>
