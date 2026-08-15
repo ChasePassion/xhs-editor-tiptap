@@ -4,10 +4,12 @@ export type InlineNode =
   | { type: 'text'; text: string; bold?: boolean; italic?: boolean; code?: boolean; color?: string }
   | { type: 'break' }
 
+export type ImageAlign = 'left' | 'center' | 'right'
+
 export type ContentBlock =
   | { type: 'heading'; level: number; inline: InlineNode[] }
   | { type: 'paragraph'; inline: InlineNode[] }
-  | { type: 'image'; src: string; alt?: string }
+  | { type: 'image'; src: string; alt?: string; align?: ImageAlign; width?: number }
   | { type: 'list'; ordered: boolean; items: InlineNode[][] }
   | { type: 'quote'; inline: InlineNode[] }
   | { type: 'divider' }
@@ -16,7 +18,7 @@ export type ContentBlock =
 export type PageItem =
   | { kind: 'heading'; level: number; inline: InlineNode[] }
   | { kind: 'paragraph'; inline: InlineNode[]; continued?: boolean }
-  | { kind: 'image'; src: string; alt?: string }
+  | { kind: 'image'; src: string; alt?: string; align?: ImageAlign; width?: number }
   | { kind: 'list'; ordered: boolean; items: InlineNode[][] }
   | { kind: 'quote'; inline: InlineNode[] }
   | { kind: 'divider' }

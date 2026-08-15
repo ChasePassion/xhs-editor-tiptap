@@ -75,11 +75,39 @@
   border-top: 1px solid var(--border);
   margin: 1em 0;
 }
-.xhs-editor .ProseMirror img {
+/* 图片 NodeView：外层 wrap 控制对齐与宽度（width 未设置时收缩为图片自然宽度） */
+.xhs-editor .ProseMirror .xhs-img-wrap {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.5em auto;
+}
+.xhs-editor .ProseMirror .xhs-img-wrap[data-align='left'] {
+  margin-left: 0;
+  margin-right: auto;
+}
+.xhs-editor .ProseMirror .xhs-img-wrap[data-align='right'] {
+  margin-left: auto;
+  margin-right: 0;
+}
+.xhs-editor .ProseMirror .xhs-img-wrap img {
+  display: block;
   max-width: 100%;
   height: auto;
   border-radius: 6px;
-  margin: 0.5em 0;
+}
+.xhs-editor .ProseMirror .xhs-img-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--ring, #117cee);
+  border-radius: 3px;
+  cursor: ew-resize;
+  touch-action: none;
 }
 .xhs-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -88,6 +116,119 @@
   height: 0;
   pointer-events: none;
 }
+/* 图片裁剪覆盖层（fixed 定位在目标图片上方） */
+.xhs-crop-overlay {
+  position: fixed;
+  z-index: 60;
+  user-select: none;
+}
+.xhs-crop-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.xhs-crop-rect {
+  position: absolute;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: move;
+  touch-action: none;
+}
+.xhs-crop-guide {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+.xhs-crop-guide.v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.xhs-crop-guide.h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.xhs-crop-handle {
+  position: absolute;
+  z-index: 2;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  touch-action: none;
+}
+.xhs-crop-handle.nw,
+.xhs-crop-handle.se {
+  cursor: nwse-resize;
+}
+.xhs-crop-handle.ne,
+.xhs-crop-handle.sw {
+  cursor: nesw-resize;
+}
+.xhs-crop-handle.n,
+.xhs-crop-handle.s {
+  cursor: ns-resize;
+  width: 22px;
+  height: 7px;
+  margin-left: -11px;
+  border-radius: 4px;
+}
+.xhs-crop-handle.e,
+.xhs-crop-handle.w {
+  cursor: ew-resize;
+  width: 7px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 4px;
+}
+.xhs-crop-handle.nw,
+.xhs-crop-handle.ne,
+.xhs-crop-handle.sw,
+.xhs-crop-handle.se {
+  width: 12px;
+  height: 12px;
+}
+.xhs-crop-handle.nw {
+  left: -6px;
+  top: -6px;
+}
+.xhs-crop-handle.n {
+  left: 50%;
+  top: -4px;
+}
+.xhs-crop-handle.ne {
+  right: -6px;
+  top: -6px;
+}
+.xhs-crop-handle.e {
+  right: -4px;
+  top: 50%;
+}
+.xhs-crop-handle.se {
+  right: -6px;
+  bottom: -6px;
+}
+.xhs-crop-handle.s {
+  left: 50%;
+  bottom: -4px;
+}
+.xhs-crop-handle.sw {
+  left: -6px;
+  bottom: -6px;
+}
+.xhs-crop-handle.w {
+  left: -4px;
+  top: 50%;
+}
+.xhs-crop-actions {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+}
+
 /* 文字颜色选择器弹出层 */
 .xhs-color-popover {
   position: absolute;

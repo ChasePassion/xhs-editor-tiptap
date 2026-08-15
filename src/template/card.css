@@ -118,10 +118,18 @@
 
 .xhs-img {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
   border-radius: 0;
-  margin: 6px 0 24px;
+  margin: 6px auto 24px;
+}
+.xhs-img[data-align='left'] {
+  margin-left: 0;
+  margin-right: auto;
+}
+.xhs-img[data-align='right'] {
+  margin-left: auto;
+  margin-right: 0;
 }
 
 .xhs-quote {

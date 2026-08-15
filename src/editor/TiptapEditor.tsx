@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import type { JSONContent } from '@tiptap/core'
+import { NodeSelection } from '@tiptap/pm/state'
 import { marked } from 'marked'
 import { extensions } from './extensions'
 import { ColorControl } from './ColorControl'
+import { ImageCropOverlay } from './ImageCrop'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Code,
+  Crop,
   Heading1,
   Heading2,
   Heading3,
@@ -21,20 +27,6 @@ import {
   Code2,
 } from 'lucide-react'
 import './editor.css'
-
-const INITIAL_MD = `## 夹爪 vs 五指灵巧手，看点不只是输赢
-
-电机发热、动作不稳、数据不足、模型失误和维护成本，每一项都会把漂亮 Demo 拉回现实。
-
-也正因为这样，我在关注一场实测。据品牌方资料，今天下午 **14:00** 直播挑战 1248 件/小时分拣纪录。
-
-> 这不是简单的输赢，而是两条技术路线的赌注。
-
-- 夹爪：便宜、稳、够用
-- 灵巧手：贵、复杂、天花板高
-
-不管谁赢，这场实测都会把「人形机器人能不能干活」从 Demo 推进到真实场景。
-`
 
 marked.use({ gfm: true, breaks: false })
 function mdToJson(md: string): JSONContent {
@@ -160,12 +152,13 @@ function insertImageFile(view: { state: { schema: { nodes: { image: { create: (a
 
 export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent) => void }) {
   const [mode, setMode] = useState<'rich' | 'raw'>('rich')
-  const [rawText, setRawText] = useState<string>(INITIAL_MD)
+  const [rawText, setRawText] = useState<string>('')
+  const [cropTarget, setCropTarget] = useState<{ img: HTMLImageElement; pos: number; attrs: Record<string, unknown> } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const editor = useEditor({
     extensions,
-    content: mdToJson(INITIAL_MD),
+    content: '',
     editorProps: {
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items
@@ -206,6 +199,8 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
       bullet: editor.isActive('bulletList'),
       ordered: editor.isActive('orderedList'),
       quote: editor.isActive('blockquote'),
+      image: editor.state.selection instanceof NodeSelection && editor.state.selection.node.type.name === 'image',
+      imgAlign: (editor.getAttributes('image').align as 'left' | 'center' | 'right') ?? 'center',
       color: editor.getAttributes('textColor').color as string | undefined,
     }),
     equalityFn: undefined,
@@ -217,6 +212,36 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
     editor.chain().focus().setImage({ src }).run()
     onDocChange(editor.getJSON())
   }
+
+  // 进入裁剪：锁定当前选中的图片节点，期间禁止编辑防止文档结构变化
+  const startCrop = useCallback(() => {
+    if (!editor) return
+    const sel = editor.state.selection
+    if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'image') return
+    const dom = editor.view.nodeDOM(sel.from)
+    const img = dom instanceof HTMLImageElement ? dom : dom instanceof HTMLElement ? dom.querySelector('img') : null
+    if (!img) return
+    editor.setEditable(false)
+    setCropTarget({ img, pos: sel.from, attrs: { ...sel.node.attrs } })
+  }, [editor])
+
+  const endCrop = useCallback(() => {
+    setCropTarget(null)
+    editor?.setEditable(true)
+    editor?.commands.focus()
+  }, [editor])
+
+  const applyCrop = useCallback(
+    (dataUrl: string) => {
+      if (editor && cropTarget) {
+        const { pos, attrs } = cropTarget
+        // 直接替换 src 为裁剪结果（按原图分辨率导出 dataURL），触发 onUpdate 重新分页
+        editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...attrs, src: dataUrl }))
+      }
+      endCrop()
+    },
+    [editor, cropTarget, endCrop],
+  )
 
   const switchToRaw = useCallback(() => {
     if (!editor) return
@@ -298,6 +323,30 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
             <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
               <ImagePlus data-icon="inline-start" /> 图片
             </Button>
+            {sel.image && !cropTarget && (
+              <Button size="sm" variant="outline" onClick={startCrop}>
+                <Crop data-icon="inline-start" /> 裁剪
+              </Button>
+            )}
+            {sel.image && !cropTarget &&
+              (
+                [
+                  { align: 'left' as const, Icon: AlignLeft, label: '左对齐' },
+                  { align: 'center' as const, Icon: AlignCenter, label: '居中对齐' },
+                  { align: 'right' as const, Icon: AlignRight, label: '右对齐' },
+                ]
+              ).map(({ align, Icon, label }) => (
+                <Button
+                  key={align}
+                  size="sm"
+                  variant={sel.imgAlign === align ? 'default' : 'outline'}
+                  aria-label={label}
+                  title={label}
+                  onClick={() => editor.chain().focus().updateAttributes('image', { align }).run()}
+                >
+                  <Icon />
+                </Button>
+              ))}
             <div className="flex-1" />
             <Button size="sm" variant="ghost" onClick={switchToRaw}>
               <Code2 data-icon="inline-start" /> Raw
@@ -323,6 +372,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
           spellCheck={false}
         />
       )}
+      {cropTarget && <ImageCropOverlay img={cropTarget.img} onConfirm={applyCrop} onCancel={endCrop} />}
     </div>
   )
 }

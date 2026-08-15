@@ -117,6 +117,8 @@ function makeBlockEl(block: ContentBlock): HTMLElement {
       const img = document.createElement('img')
       img.className = 'xhs-img'
       img.src = block.src
+      img.dataset.align = block.align ?? 'center'
+      if (block.width) img.style.width = `${block.width}%`
       return img
     }
     case 'list': {
@@ -142,7 +144,7 @@ function toPageItem(block: ContentBlock): PageItem {
     case 'paragraph':
       return { kind: 'paragraph', inline: block.inline }
     case 'image':
-      return { kind: 'image', src: block.src, alt: block.alt }
+      return { kind: 'image', src: block.src, alt: block.alt, align: block.align, width: block.width }
     case 'quote':
       return { kind: 'quote', inline: block.inline }
     case 'list':

@@ -1,7 +1,7 @@
 // 归一化边界：tiptap JSON → 自有 ContentBlock[]。
 // unsupported node/mark 一律 throw（不 silent ignore）—— v2.1 adviser 要求。
 import type { JSONContent } from '@tiptap/core'
-import type { ContentBlock, InlineNode } from './types'
+import type { ContentBlock, ImageAlign, InlineNode } from './types'
 
 const SUPPORTED_MARKS = new Set(['bold', 'italic', 'code', 'textColor'])
 
@@ -35,6 +35,16 @@ function inlineFromContent(nodes: JSONContent[] = []): InlineNode[] {
   return out
 }
 
+function imageBlockFrom(im: JSONContent): ContentBlock {
+  return {
+    type: 'image',
+    src: (im.attrs?.src as string) ?? '',
+    alt: im.attrs?.alt as string | undefined,
+    align: im.attrs?.align as ImageAlign | undefined,
+    width: (im.attrs?.width as number | null) ?? undefined,
+  }
+}
+
 function blockFromNode(node: JSONContent): ContentBlock[] {
   switch (node.type) {
     case 'heading':
@@ -55,22 +65,12 @@ function blockFromNode(node: JSONContent): ContentBlock[] {
           n.type === 'hardBreak',
       )
       if (imgs.length >= 1 && onlyImgOrSpace) {
-        return imgs.map((im) => ({
-          type: 'image',
-          src: (im.attrs?.src as string) ?? '',
-          alt: im.attrs?.alt as string | undefined,
-        }))
+        return imgs.map(imageBlockFrom)
       }
       return [{ type: 'paragraph', inline: inlineFromContent(c) }]
     }
     case 'image':
-      return [
-        {
-          type: 'image',
-          src: (node.attrs?.src as string) ?? '',
-          alt: node.attrs?.alt as string | undefined,
-        },
-      ]
+      return [imageBlockFrom(node)]
     case 'bulletList':
     case 'orderedList': {
       const items = (node.content ?? [])

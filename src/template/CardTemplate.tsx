@@ -37,7 +37,15 @@ function ItemView({ item, fontFamily }: { item: PageItem; fontFamily: string }) 
         </p>
       )
     case 'image':
-      return <img className="xhs-img" src={item.src} alt={item.alt ?? ''} />
+      return (
+        <img
+          className="xhs-img"
+          src={item.src}
+          alt={item.alt ?? ''}
+          data-align={item.align ?? 'center'}
+          style={item.width ? { width: `${item.width}%` } : undefined}
+        />
+      )
     case 'quote':
       return (
         <blockquote className="xhs-quote">

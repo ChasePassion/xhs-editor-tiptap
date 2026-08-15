@@ -13,8 +13,17 @@ async function replaceRawText(page: Page, text: string) {
   await expect(textarea).toHaveValue(text)
 }
 
+// 编辑器初始为空文档，用例需要的内容统一走 Raw 模式填入再切回富文本
+async function seedContent(page: Page, md: string) {
+  await switchToRaw(page)
+  await replaceRawText(page, md)
+  await page.getByRole('button', { name: '应用并切回富文本' }).click()
+  await expect(page.locator('.xhs-editor .ProseMirror')).toBeVisible()
+}
+
 test('heading keeps its inherited bold weight in preview', async ({ page }) => {
   await page.goto('/')
+  await seedContent(page, '## 字重验证标题\n\n正文段落\n')
   await page.getByRole('button', { name: '自动分页' }).click()
 
   const actualTitleRun = page.locator('.xhs-card').first().locator('.xhs-h-text span > span').first()
@@ -23,6 +32,7 @@ test('heading keeps its inherited bold weight in preview', async ({ page }) => {
 
 test('heading owns the full content width so export font loading cannot freeze an intrinsic flex width', async ({ page }) => {
   await page.goto('/')
+  await seedContent(page, '## 全宽标题\n\n正文段落\n')
   await expect(page.getByText('1 页', { exact: true })).toBeVisible()
 
   const geometry = await page.locator('.xhs-card').first().evaluate((card) => {
@@ -37,6 +47,7 @@ test('heading owns the full content width so export font loading cannot freeze a
 
 test('visible preview card is enlarged while preserving the 3:4 aspect ratio', async ({ page }) => {
   await page.goto('/')
+  await seedContent(page, '预览比例\n\n正文段落\n')
   await expect(page.getByText('1 页', { exact: true })).toBeVisible()
 
   const box = await page.locator('.xhs-card').first().boundingBox()
@@ -47,6 +58,7 @@ test('visible preview card is enlarged while preserving the 3:4 aspect ratio', a
 
 test('preview follows editor bold changes without a manual paginate click', async ({ page }) => {
   await page.goto('/')
+  await seedContent(page, '加粗变化\n\n今天下午 **14:00** 直播\n')
   await expect(page.getByText('1 页', { exact: true })).toBeVisible()
   await expect(page.locator('.xhs-card').first().locator('strong', { hasText: '14:00' })).toHaveCount(1)
   await switchToRaw(page)
@@ -124,11 +136,18 @@ for (const fontName of ['思源黑体', '阿里巴巴普惠体'] as const) {
   })
 }
 
-test('export button commits the latest three-page document before creating the ZIP', async ({ page }) => {
+test('export button commits the latest multi-page document before creating the ZIP', async ({ page }) => {
   await page.goto('/')
-  await switchToRaw(page)
-  const one = (await page.locator('textarea').inputValue()).trim()
-  await replaceRawText(page, `${one}\n\n${one}\n\n${one}\n`)
+  const para = '自动分页导出验证：这是一段较长的正文文本，用来把文档撑到多页，验证导出前会重新提交最新分页结果。'
+  await seedContent(page, Array.from({ length: 30 }, () => para).join('\n\n'))
+  await page.getByRole('button', { name: '自动分页' }).click()
+
+  // 分页是异步的，轮询徽标直到出现 ≥2 页
+  await expect
+    .poll(async () => Number((await page.getByText(/^\d+ 页$/).textContent())?.match(/\d+/)?.[0] ?? 0))
+    .toBeGreaterThanOrEqual(2)
+  const badge = await page.getByText(/^\d+ 页$/).textContent()
+  const pageCount = Number(badge?.match(/\d+/)?.[0] ?? 0)
 
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出 PNG' }).click()
@@ -138,5 +157,5 @@ test('export button commits the latest three-page document before creating the Z
 
   const zip = await JSZip.loadAsync(await readFile(path))
   const pngNames = Object.keys(zip.files).filter((name) => name.endsWith('.png'))
-  expect(pngNames).toHaveLength(3)
+  expect(pngNames).toHaveLength(pageCount)
 })
