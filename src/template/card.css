@@ -141,7 +141,21 @@
 .xhs-list {
   margin: 0 0 22px;
   padding-left: 40px;
+  list-style-position: outside;
+}
+/* 显式恢复标记：Tailwind preflight 对全文档 ul/ol 设 list-style: none，
+   编辑器之外的预览/导出会丢圆点，不能依赖浏览器默认值 */
+ul.xhs-list {
+  list-style: disc;
+}
+ol.xhs-list {
+  list-style: decimal;
 }
 .xhs-list li {
   margin-bottom: 10px;
+  /* 列表项行距收紧（不超过正文行距），分点之间不占一整行行距 */
+  line-height: min(1.5, var(--xhs-line-height, 1.9));
+}
+.xhs-list li:last-child {
+  margin-bottom: 0;
 }
