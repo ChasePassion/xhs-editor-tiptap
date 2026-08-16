@@ -143,3 +143,32 @@ test('dragging the resize handle narrows the image in editor and preview', async
   const containerW = await wrap.evaluate((el) => (el.parentElement as HTMLElement).clientWidth)
   expect(Math.abs(pct - Math.round((after.width / containerW) * 100))).toBeLessThanOrEqual(2)
 })
+
+test('image survives the raw markdown round-trip with its attrs', async ({ page }) => {
+  await page.goto('/')
+  const img = await uploadImage(page)
+  await img.click()
+  await page.getByRole('button', { name: '左对齐' }).click()
+  await expect(page.locator('.xhs-img-wrap')).toHaveAttribute('data-align', 'left')
+
+  // 切到 Raw：图片变成紧凑标记而不是 base64，周围文字可正常编辑
+  await page.getByRole('button', { name: 'Raw' }).click()
+  const textarea = page.locator('textarea')
+  const raw = await textarea.inputValue()
+  expect(raw).toContain('xhs-img:0')
+  expect(raw).not.toContain('data:image')
+  await textarea.fill(`## 标题\n\n${raw}`)
+  await page.getByRole('button', { name: '应用并切回富文本' }).click()
+
+  // 切回富文本：图片还在，对齐属性保留
+  const imgAgain = page.locator('.xhs-editor .ProseMirror .xhs-img-wrap img').first()
+  await expect(imgAgain).toBeVisible()
+  await expect(imgAgain).toHaveJSProperty('naturalWidth', 200)
+  await expect(page.locator('.xhs-img-wrap')).toHaveAttribute('data-align', 'left')
+  await expect(page.locator('.ProseMirror h2, .ProseMirror heading')).toContainText('标题')
+
+  // 预览卡片：图片 + 标题都在
+  await page.getByRole('button', { name: '自动分页' }).click()
+  await expect(page.locator('.xhs-card .xhs-img').first()).toHaveAttribute('data-align', 'left')
+  await expect(page.locator('.xhs-card').first()).toContainText('标题')
+})

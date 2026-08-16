@@ -29,19 +29,37 @@ import {
 import './editor.css'
 
 marked.use({ gfm: true, breaks: false })
-function mdToJson(md: string): JSONContent {
+
+// Raw 模式图片标记：正文里写 ![alt](xhs-img:N)，src/align/width 等属性存在 images 注册表里，
+// 避免 base64 塞进 textarea 拖垮每次按键的 markdown 解析。
+type RawImageAttrs = { src: string; alt?: string; align?: string; width?: number | null }
+const IMG_MARKER_RE = /^!\[([^\]]*)\]\(xhs-img:(\d+)\)$/
+
+function mdToJson(md: string, images: RawImageAttrs[] = []): JSONContent {
   const tokens = marked.lexer(md)
-  return { type: 'doc', content: tokens.map(tokenToBlock).filter((n): n is JSONContent => Boolean(n)) }
+  return { type: 'doc', content: tokens.map((t) => tokenToBlock(t, images)).filter((n): n is JSONContent => Boolean(n)) }
 }
-function jsonToMd(json: JSONContent): string {
-  return (json.content ?? []).map(blockToMd).join('\n\n').trim() + '\n'
+function docToRaw(json: JSONContent): { md: string; images: RawImageAttrs[] } {
+  const images: RawImageAttrs[] = []
+  const md = (json.content ?? []).map((n) => blockToMd(n, images)).join('\n\n').trim() + '\n'
+  return { md, images }
 }
-function tokenToBlock(tok: any): JSONContent | null {
+function tokenToBlock(tok: any, images: RawImageAttrs[]): JSONContent | null {
   switch (tok.type) {
     case 'heading':
       return { type: 'heading', attrs: { level: tok.depth }, content: [{ type: 'text', text: tok.text, marks: [] }] }
-    case 'paragraph':
+    case 'paragraph': {
+      // 整段只是一条图片标记 → 还原为图片块（标记 alt 可覆盖注册表里的 alt）
+      const im = tok.text?.trim().match(IMG_MARKER_RE)
+      if (im) {
+        const attrs = images[Number(im[2])]
+        if (attrs) {
+          const alt = im[1] || attrs.alt || ''
+          return { type: 'image', attrs: { ...attrs, alt } }
+        }
+      }
       return { type: 'paragraph', content: inlineToMarks(tok.text) }
+    }
     case 'blockquote':
       return { type: 'blockquote', content: tok.tokens?.filter((t: any) => t.type === 'paragraph').map((p: any) => ({ type: 'paragraph', content: inlineToMarks(p.text) })) ?? [{ type: 'paragraph', content: inlineToMarks(tok.text) }] }
     case 'list':
@@ -100,7 +118,7 @@ function inlineToMarks(text: string): JSONContent[] {
   }
   return out.length ? out : [{ type: 'text', text: '', marks: [] }]
 }
-function blockToMd(node: JSONContent): string {
+function blockToMd(node: JSONContent, images: RawImageAttrs[]): string {
   const text = (n: JSONContent) => (n.content ?? []).map(c => c.text ?? '').join('')
   const mdText = (n: JSONContent) => inlineToMd((n.content ?? []).map(c => ({ ...c, marks: c.marks ?? [] })))
   switch (node.type) {
@@ -108,6 +126,17 @@ function blockToMd(node: JSONContent): string {
       return '#'.repeat((node.attrs?.level as number) ?? 1) + ' ' + text(node) + '\n'
     case 'paragraph':
       return mdText(node)
+    case 'image': {
+      const attrs = node.attrs ?? {}
+      const id = images.length
+      images.push({
+        src: (attrs.src as string) ?? '',
+        alt: attrs.alt as string | undefined,
+        align: attrs.align as string | undefined,
+        width: (attrs.width as number | null) ?? null,
+      })
+      return `![${(attrs.alt as string) ?? ''}](xhs-img:${id})`
+    }
     case 'blockquote':
       return (node.content ?? []).map(c => '> ' + text(c)).join('\n')
     case 'bulletList':
@@ -155,6 +184,8 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
   const [rawText, setRawText] = useState<string>('')
   const [cropTarget, setCropTarget] = useState<{ img: HTMLImageElement; pos: number; attrs: Record<string, unknown> } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Raw 模式图片注册表：switchToRaw 时重建，标记 xhs-img:N 引用到这里
+  const rawImagesRef = useRef<RawImageAttrs[]>([])
 
   const editor = useEditor({
     extensions,
@@ -245,12 +276,14 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
 
   const switchToRaw = useCallback(() => {
     if (!editor) return
-    setRawText(jsonToMd(editor.getJSON()))
+    const { md, images } = docToRaw(editor.getJSON())
+    rawImagesRef.current = images
+    setRawText(md)
     setMode('raw')
   }, [editor])
 
   const switchToRich = useCallback(() => {
-    const json = mdToJson(rawText)
+    const json = mdToJson(rawText, rawImagesRef.current)
     editor?.commands.setContent(json)
     setMode('rich')
   }, [editor, rawText])
@@ -259,7 +292,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
   useEffect(() => {
     if (mode !== 'raw') return
     try {
-      onDocChange(mdToJson(rawText))
+      onDocChange(mdToJson(rawText, rawImagesRef.current))
     } catch {
       /* markdown 解析失败时静默忽略，避免输入半成品时报错 */
     }
