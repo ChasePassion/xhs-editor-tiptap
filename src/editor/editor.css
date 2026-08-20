@@ -75,6 +75,19 @@
   border-top: 1px solid var(--border);
   margin: 1em 0;
 }
+/* 围栏代码块（```mermaid / ```text）：等宽字体 + 保留换行 */
+.xhs-editor .ProseMirror pre {
+  margin: 0 0 0.5em;
+  padding: 12px 14px;
+  background: var(--muted);
+  border-radius: 8px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  tab-size: 2;
+}
 /* 图片 NodeView：外层 wrap 控制对齐与宽度（width 未设置时收缩为图片自然宽度） */
 .xhs-editor .ProseMirror .xhs-img-wrap {
   position: relative;

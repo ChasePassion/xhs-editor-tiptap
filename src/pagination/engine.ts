@@ -1,6 +1,7 @@
-// 分页引擎 —— off-screen measurement host 真实测量 + 段落内 Range 几何二分。
-// v2：适配 TextRun 扁平模型；无水印（BOTTOM_SAFE 留底部呼吸）。
-import type { ContentBlock, InlineNode, Page, PageItem } from '@/markdown/types'
+// 分页引擎 —— off-screen measurement host 真实测量 + 段内 Range 几何二分。
+// v3：文本块（段落/引用）按行级切分 —— 分页边界落在块中间就从中间切开，
+//     不再把整个块推到下一页；支持 code（纯代码）与 diagram（mermaid svg）块。
+import type { ContentBlock, DiagramSvg, InlineNode, Page, PageItem } from '@/markdown/types'
 
 export type MeasureHost = {
   cardEl: HTMLElement
@@ -11,19 +12,28 @@ export type MeasureHost = {
 const CARD_H = 1440
 const BOTTOM_SAFE = 40
 
-function inlineLen(n: InlineNode): number {
-  return n.type === 'text' ? n.text.length : 1
+/** 段内文本长度（hardBreak 不占文本位，只影响换行） */
+function textLen(inline: InlineNode[]): number {
+  return inline.reduce((s, n) => s + (n.type === 'text' ? n.text.length : 0), 0)
 }
 
-export function splitInline(inline: InlineNode[], at: number): [InlineNode[], InlineNode[]] {
-  let used = 0
+/**
+ * 在文本偏移处切开 inline（break 归左侧）。at 是「文本位」而非「节点位」，
+ * 与 bisectTextOffset 的 Range 度量空间一致，含 hardBreak 的段落才不会切错位置。
+ */
+export function splitInlineAtText(inline: InlineNode[], at: number): [InlineNode[], InlineNode[]] {
   const left: InlineNode[] = []
+  let used = 0
   let i = 0
   for (; i < inline.length; i++) {
-    const len = inlineLen(inline[i])
-    if (used + len <= at) {
-      left.push(inline[i])
-      used += len
+    const n = inline[i]
+    if (n.type === 'break') {
+      left.push(n)
+      continue
+    }
+    if (used + n.text.length <= at) {
+      left.push(n)
+      used += n.text.length
     } else break
   }
   const right: InlineNode[] = []
@@ -76,8 +86,8 @@ function appendRun(n: InlineNode, parent: Node) {
   }
   if (n.italic) {
     const e = document.createElement('em')
-    e.textContent = n.text
     e.style.cssText = `${SYN}; font-style: normal`
+    e.textContent = n.text
     parent.appendChild(e)
     return
   }
@@ -89,7 +99,13 @@ function domFromInline(inline: InlineNode[], parent: Node) {
   for (const n of inline) appendRun(n, parent)
 }
 
-function makeBlockEl(block: ContentBlock): HTMLElement {
+/** diagram 按页内可用空间等比缩放（小图最多放大 2 倍，文字观感与正文协调） */
+function diagramSize(d: DiagramSvg, avail: { w: number; h: number }): { w: number; h: number } {
+  const scale = Math.min(avail.w / d.w, avail.h / d.h, 2)
+  return { w: Math.round(d.w * scale), h: Math.round(d.h * scale) }
+}
+
+function makeBlockEl(block: ContentBlock, avail: { w: number; h: number }): HTMLElement {
   switch (block.type) {
     case 'heading': {
       const div = document.createElement('div')
@@ -121,6 +137,25 @@ function makeBlockEl(block: ContentBlock): HTMLElement {
       if (block.width) img.style.width = `${block.width}%`
       return img
     }
+    case 'code': {
+      if (block.diagram) {
+        // svg 的 font-family 已剥掉 → 继承 .xhs-card 根节点 inline 字体（导出 remap 一并生效）
+        const wrap = document.createElement('div')
+        wrap.className = 'xhs-diagram'
+        const { w, h } = diagramSize(block.diagram, avail)
+        wrap.style.width = `${w}px`
+        wrap.style.height = `${h}px`
+        wrap.innerHTML = block.diagram.html
+        return wrap
+      }
+      const pre = document.createElement('pre')
+      pre.className = 'xhs-code'
+      pre.dataset.lang = block.lang
+      const code = document.createElement('code')
+      code.textContent = block.code
+      pre.appendChild(code)
+      return pre
+    }
     case 'list': {
       const list = document.createElement(block.ordered ? 'ol' : 'ul')
       list.className = 'xhs-list'
@@ -137,7 +172,7 @@ function makeBlockEl(block: ContentBlock): HTMLElement {
   }
 }
 
-function toPageItem(block: ContentBlock): PageItem {
+function toPageItem(block: ContentBlock, el: HTMLElement, avail: { w: number; h: number }): PageItem {
   switch (block.type) {
     case 'heading':
       return { kind: 'heading', level: block.level, inline: block.inline }
@@ -149,10 +184,30 @@ function toPageItem(block: ContentBlock): PageItem {
       return { kind: 'quote', inline: block.inline }
     case 'list':
       return { kind: 'list', ordered: block.ordered, items: block.items }
+    case 'code': {
+      const item: Extract<PageItem, { kind: 'code' }> = { kind: 'code', lang: block.lang, code: block.code }
+      if (block.diagram) {
+        item.diagram = block.diagram
+        item.diagSize = diagramSize(block.diagram, avail)
+      } else if (el.style.fontSize) {
+        item.size = parseFloat(el.style.fontSize)
+      }
+      return item
+    }
     case 'divider':
     case 'pagebreak':
       return { kind: 'divider' }
   }
+}
+
+/** 纯代码块等宽缩字号：white-space:pre 下行超宽时逐步缩小（最小 14px），树形图/ASCII 图不折行 */
+function fitCodeFontSize(el: HTMLElement): boolean {
+  let size = parseFloat(getComputedStyle(el).fontSize) || 24
+  while (el.scrollWidth > el.clientWidth + 1 && size > 14) {
+    size -= 1
+    el.style.fontSize = `${size}px`
+  }
+  return el.scrollWidth <= el.clientWidth + 1
 }
 
 export function availableHeight(host: MeasureHost): number {
@@ -165,17 +220,19 @@ export function availableHeight(host: MeasureHost): number {
 
 export type PaginateResult = { pages: Page[]; warnings: string[] }
 
-function bisectParagraphOffset(
-  inline: InlineNode[],
+/**
+ * 在 content（可能已含当前页内容）里渲染文本块，二分出「最后一行底边 ≤ max」
+ * 的最大文本偏移 —— 行级切分点：同一行内任意偏移的底边相同，结果必然落在行尾。
+ */
+function bisectTextOffset(
+  block: Extract<ContentBlock, { type: 'paragraph' | 'quote' }>,
   content: HTMLElement,
   max: number,
 ): number {
-  const p = document.createElement('p')
-  p.className = 'xhs-p'
-  domFromInline(inline, p)
-  content.appendChild(p)
+  const el = makeBlockEl(block, { w: 0, h: 0 })
+  content.appendChild(el)
   const contentTop = content.getBoundingClientRect().top
-  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
   const texts: { node: Text; len: number }[] = []
   let n: Node | null
   while ((n = walker.nextNode())) texts.push({ node: n as Text, len: (n as Text).length })
@@ -193,7 +250,7 @@ function bisectParagraphOffset(
       }
       acc += t.len
     }
-    range.selectNodeContents(p)
+    range.selectNodeContents(el)
     return range.getBoundingClientRect().bottom - contentTop
   }
   let lo = 0
@@ -203,7 +260,7 @@ function bisectParagraphOffset(
     if (bottomAt(mid) <= max) lo = mid
     else hi = mid - 1
   }
-  content.removeChild(p)
+  content.removeChild(el)
   return lo
 }
 
@@ -214,6 +271,7 @@ export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateRes
   let cur: PageItem[] = []
   const content = host.contentEl
   content.innerHTML = ''
+  const avail = { w: content.clientWidth, h: max }
   const flush = () => {
     if (cur.length) pages.push({ items: cur })
     cur = []
@@ -227,31 +285,58 @@ export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateRes
       flush()
       continue
     }
-    const el = makeBlockEl(block)
+    const el = makeBlockEl(block, avail)
     content.appendChild(el)
+    if (block.type === 'code' && !block.diagram && !fitCodeFontSize(el)) {
+      warnings.push('代码块部分行过长，已缩到最小字号仍可能被截断，请缩短最长行')
+    }
     if (content.scrollHeight <= max) {
-      cur.push(toPageItem(block))
+      cur.push(toPageItem(block, el, avail))
       continue
     }
     content.removeChild(el)
-    if (cur.length === 0) {
-      if (block.type === 'paragraph') {
-        const total = block.inline.reduce((s, n) => s + inlineLen(n), 0)
-        const at = bisectParagraphOffset(block.inline, content, max)
-        const [kept, rest] = splitInline(block.inline, at)
-        if (kept.length) cur.push({ kind: 'paragraph', inline: kept, continued: true })
+    // 文本块（段落/引用）：行级切分 —— 当前页能装几行装几行，剩余部分进下一页
+    if (block.type === 'paragraph' || block.type === 'quote') {
+      // 预留该块的 margin-bottom / padding-bottom，保证切完后整页 scrollHeight 仍 ≤ max
+      const cs = getComputedStyle(el)
+      const reserve = (parseFloat(cs.marginBottom) || 0) + (parseFloat(cs.paddingBottom) || 0)
+      const total = textLen(block.inline)
+      const at = bisectTextOffset(block, content, max - reserve)
+      if (at > 0 && at < total) {
+        const [kept, rest] = splitInlineAtText(block.inline, at)
+        cur.push(
+          block.type === 'paragraph'
+            ? { kind: 'paragraph', inline: kept, continued: true }
+            : { kind: 'quote', inline: kept },
+        )
         flush()
-        if (rest.length && at < total) queue.unshift({ type: 'paragraph', inline: rest })
-        else if (!kept.length) warnings.push('段落过长或可用高度过小，无法完整切分，请减小字号/边距')
+        if (rest.length) queue.unshift({ ...block, inline: rest })
         continue
       }
+      // at==0：剩余空间一行都放不下；at==total：仅 margin 溢出（罕见）
+      if (cur.length === 0) {
+        warnings.push(
+          block.type === 'paragraph'
+            ? '段落过长或可用高度过小，无法完整切分，请减小字号/边距'
+            : '引用块过长或可用高度过小，无法完整切分，请减小字号/边距',
+        )
+        content.appendChild(el)
+        cur.push(toPageItem(block, el, avail))
+        flush()
+        continue
+      }
+      flush()
+      queue.unshift(block)
+      continue
+    }
+    if (cur.length === 0) {
       warnings.push(
         block.type === 'image'
           ? '单张图片高度超过一页，请裁剪或缩小后再用'
           : `${block.type} 块过高，已强制放置`,
       )
       content.appendChild(el)
-      cur.push(toPageItem(block))
+      cur.push(toPageItem(block, el, avail))
       flush()
       continue
     }

@@ -1,4 +1,5 @@
 // tiptap 扩展配置 —— adviser v2.1：精简 StarterKit，保留 undoRedo/listKeymap/hardBreak/horizontalRule
+// codeBlock（含 ```mermaid / ```text 围栏）走 StarterKit 自带扩展，language 存 attrs
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import type { Extensions } from '@tiptap/core'
@@ -32,7 +33,6 @@ const AlignedImage = Image.extend({
 export const extensions: Extensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
-    codeBlock: false,
     link: false,
     strike: false,
     underline: false,

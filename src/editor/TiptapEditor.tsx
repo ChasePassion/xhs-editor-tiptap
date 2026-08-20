@@ -13,6 +13,7 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  Braces,
   Code,
   Crop,
   Heading1,
@@ -72,6 +73,13 @@ function tokenToBlock(tok: any, images: RawImageAttrs[]): JSONContent | null {
       }
     case 'hr':
       return { type: 'horizontalRule' }
+    case 'code':
+      // ```mermaid / ```text 等围栏代码块：language 进 attrs，换行内嵌在 text 节点里
+      return {
+        type: 'codeBlock',
+        attrs: { language: tok.lang || null },
+        content: [{ type: 'text', text: String(tok.text ?? '').replace(/\n$/, ''), marks: [] }],
+      }
     case 'space':
       return null
     default:
@@ -145,6 +153,11 @@ function blockToMd(node: JSONContent, images: RawImageAttrs[]): string {
       return (node.content ?? []).map((c, i) => `${i + 1}. ` + mdText(c.content?.[0] ?? { type: 'paragraph', content: [] })).join('\n')
     case 'horizontalRule':
       return '---'
+    case 'codeBlock': {
+      const code = (node.content ?? []).map((c) => c.text ?? '').join('').replace(/\n$/, '')
+      const lang = (node.attrs?.language as string) || ''
+      return `\`\`\`${lang}\n${code}\n\`\`\``
+    }
     default:
       return ''
   }
@@ -224,6 +237,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
       bold: editor.isActive('bold'),
       italic: editor.isActive('italic'),
       code: editor.isActive('code'),
+      codeBlock: editor.isActive('codeBlock'),
       h1: editor.isActive('heading', { level: 1 }),
       h2: editor.isActive('heading', { level: 2 }),
       h3: editor.isActive('heading', { level: 3 }),
@@ -338,6 +352,14 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
             </Button>
             <Button size="sm" variant={sel.quote ? 'default' : 'outline'} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
               <Quote />
+            </Button>
+            <Button
+              size="sm"
+              variant={sel.codeBlock ? 'default' : 'outline'}
+              title="代码块（支持 ```mermaid / ```text）"
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            >
+              <Braces />
             </Button>
             <Button size="sm" variant="outline" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
               <Minus />

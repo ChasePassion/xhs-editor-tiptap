@@ -159,3 +159,34 @@ ol.xhs-list {
 .xhs-list li:last-child {
   margin-bottom: 0;
 }
+
+/* 围栏代码块（```text 树形图等）：等宽 + 不折行，保住 ASCII 对齐；
+   行过宽由分页引擎按需缩字号（inline fontSize），letter-spacing 归零保证等宽对齐 */
+.xhs-code {
+  margin: 0 0 22px;
+  padding: 20px 24px;
+  background: #f6f7f9;
+  border-radius: 14px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 24px;
+  line-height: 1.5;
+  letter-spacing: normal;
+  white-space: pre;
+  overflow: hidden;
+  color: #24292f;
+}
+.xhs-code code {
+  font-family: inherit;
+}
+
+/* mermaid 预渲染图：引擎给定展示尺寸（diagSize），svg 撑满外框（viewBox 保比例）。
+   不设字体 —— svg 内 font-family 已剥掉，继承 .xhs-card 根节点 inline 字体 */
+.xhs-diagram {
+  display: block;
+  margin: 6px auto 24px;
+}
+.xhs-diagram svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

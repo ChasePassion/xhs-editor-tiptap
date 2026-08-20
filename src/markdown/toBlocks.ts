@@ -85,6 +85,11 @@ function blockFromNode(node: JSONContent): ContentBlock[] {
       const p = (node.content ?? []).find((n) => n.type === 'paragraph')
       return p ? [{ type: 'quote', inline: inlineFromContent(p.content) }] : []
     }
+    case 'codeBlock': {
+      // codeBlock 的 content 是纯 text 节点（换行内嵌在文本里）
+      const code = (node.content ?? []).map((n) => n.text ?? '').join('').replace(/\n$/, '')
+      return [{ type: 'code', lang: (node.attrs?.language as string) || 'text', code }]
+    }
     case 'horizontalRule':
       return [{ type: 'divider' }]
     default:

@@ -70,6 +70,25 @@ function ItemView({ item, fontFamily }: { item: PageItem; fontFamily: string }) 
           ))}
         </ul>
       )
+    case 'code':
+      if (item.diagram) {
+        return (
+          <div
+            className="xhs-diagram"
+            style={{ width: item.diagSize?.w, height: item.diagSize?.h }}
+            dangerouslySetInnerHTML={{ __html: item.diagram.html }}
+          />
+        )
+      }
+      return (
+        <pre
+          className="xhs-code"
+          data-lang={item.lang}
+          style={item.size ? { fontSize: `${item.size}px` } : undefined}
+        >
+          <code>{item.code}</code>
+        </pre>
+      )
     case 'divider':
       return <hr className="xhs-divider" />
   }

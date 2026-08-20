@@ -3,8 +3,9 @@ import { flushSync } from 'react-dom'
 import { toast } from 'sonner'
 import type { JSONContent } from '@tiptap/core'
 import { normalizeTiptapDoc } from '@/markdown/toBlocks'
+import { prepareMermaidBlocks } from '@/markdown/mermaid'
 import { paginate } from '@/pagination/engine'
-import { ensureFontsLoaded, findUnsupportedGlyph } from '@/fonts'
+import { ensureFontsLoaded, findUnsupportedGlyph, FONT_FAMILIES } from '@/fonts'
 import { RenderHost, type RenderHostHandle } from '@/render/RenderHost'
 import { CardTemplate } from '@/template/CardTemplate'
 import { StylePanel } from '@/controls/StylePanel'
@@ -53,6 +54,7 @@ function blocksText(blocks: ContentBlock[]): string {
   for (const b of blocks) {
     if (b.type === 'heading' || b.type === 'paragraph' || b.type === 'quote') out.push(inlineTextOf(b.inline))
     else if (b.type === 'list') for (const it of b.items) out.push(inlineTextOf(it))
+    else if (b.type === 'code') out.push(b.code)
   }
   return out.join('')
 }
@@ -87,7 +89,10 @@ export default function App() {
     const host = hostRef.current?.getMeasureHost()
     if (!host || !docRef.current) return
     try {
-      const blocks = normalizeTiptapDoc(docRef.current)
+      const rawBlocks = normalizeTiptapDoc(docRef.current)
+      // ```mermaid 块先预渲染成 svg（按当前字体缓存），失败降级为代码文本
+      const prepared = await prepareMermaidBlocks(rawBlocks, FONT_FAMILIES[style.font])
+      const blocks = prepared.blocks
       const imgs = blocks
         .filter((b) => b.type === 'image')
         .map((b) => (b as { src: string }).src)
@@ -105,14 +110,14 @@ export default function App() {
       const result = paginate(blocks, host)
       if (syncCommit) flushSync(() => setPages(result.pages))
       else setPages(result.pages)
-      setWarnings(result.warnings)
+      setWarnings([...prepared.warnings, ...result.warnings])
       setError(null)
       setBadGlyph(findUnsupportedGlyph(blocksText(blocks)))
     } catch (e) {
       setError((e as Error).message)
       setPages([])
     }
-  }, [])
+  }, [style.font])
 
   // 编辑与排版参数变化后防抖分页，保证预览始终对应最新文档。
   useEffect(() => {
