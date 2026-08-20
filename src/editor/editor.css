@@ -88,6 +88,36 @@
   overflow-x: auto;
   tab-size: 2;
 }
+/* 表格：编辑态基础边框 + 选中单元格高亮（tiptap table 扩展不加默认样式） */
+.xhs-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 0 0 0.5em;
+}
+.xhs-editor .ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+.xhs-editor .ProseMirror th,
+.xhs-editor .ProseMirror td {
+  position: relative;
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  vertical-align: top;
+}
+.xhs-editor .ProseMirror th {
+  background: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+.xhs-editor .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(35, 90, 170, 0.15);
+  pointer-events: none;
+}
 /* 图片 NodeView：外层 wrap 控制对齐与宽度（width 未设置时收缩为图片自然宽度） */
 .xhs-editor .ProseMirror .xhs-img-wrap {
   position: relative;

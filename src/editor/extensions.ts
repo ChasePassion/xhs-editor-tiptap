@@ -2,6 +2,7 @@
 // codeBlock（含 ```mermaid / ```text 围栏）走 StarterKit 自带扩展，language 存 attrs
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import type { Extensions } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { ColorMark } from './colorMark'
@@ -30,6 +31,26 @@ const AlignedImage = Image.extend({
   },
 })
 
+// 表格单元格增加 textAlign 属性：GFM 的 :--- / :---: / ---: 对齐在 Raw 双向转换里保真
+const textAlignAttr = {
+  textAlign: {
+    default: null as string | null,
+    parseHTML: (el: HTMLElement) => el.style.textAlign || null,
+    renderHTML: (attrs: { textAlign?: string | null }) =>
+      attrs.textAlign ? { style: `text-align: ${attrs.textAlign}` } : {},
+  },
+}
+const AlignedTableCell = TableCell.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...textAlignAttr }
+  },
+})
+const AlignedTableHeader = TableHeader.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...textAlignAttr }
+  },
+})
+
 export const extensions: Extensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
@@ -40,4 +61,8 @@ export const extensions: Extensions = [
   }),
   AlignedImage.configure({ inline: false, allowBase64: true }),
   ColorMark,
+  Table.configure({ resizable: false }),
+  TableRow,
+  AlignedTableHeader,
+  AlignedTableCell,
 ]

@@ -17,6 +17,7 @@ export type ContentBlock =
   | { type: 'list'; ordered: boolean; items: InlineNode[][] }
   | { type: 'quote'; inline: InlineNode[] }
   | { type: 'code'; lang: string; code: string; diagram?: DiagramSvg }
+  | { type: 'table'; header: InlineNode[][]; rows: InlineNode[][][]; align: ('left' | 'center' | 'right')[] }
   | { type: 'divider' }
   | { type: 'pagebreak' }
 
@@ -26,6 +27,7 @@ export type PageItem =
   | { kind: 'image'; src: string; alt?: string; align?: ImageAlign; width?: number }
   | { kind: 'list'; ordered: boolean; items: InlineNode[][] }
   | { kind: 'quote'; inline: InlineNode[] }
+  | { kind: 'table'; header: InlineNode[][]; rows: InlineNode[][][]; align: ('left' | 'center' | 'right')[] }
   | {
       kind: 'code'
       lang: string

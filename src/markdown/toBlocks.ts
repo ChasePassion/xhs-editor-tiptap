@@ -85,6 +85,29 @@ function blockFromNode(node: JSONContent): ContentBlock[] {
       const p = (node.content ?? []).find((n) => n.type === 'paragraph')
       return p ? [{ type: 'quote', inline: inlineFromContent(p.content) }] : []
     }
+    case 'table': {
+      // 首行是表头（tableHeader 单元格）；单元格取第一个段落（单元格内多段落少见）
+      const rows = (node.content ?? []).filter((r) => r.type === 'tableRow')
+      const cellsOf = (row: JSONContent) => (row.content ?? []).filter((c) => c.type === 'tableCell' || c.type === 'tableHeader')
+      const inlineOfCell = (cell: JSONContent): InlineNode[] => {
+        const p = (cell.content ?? []).find((n) => n.type === 'paragraph')
+        return p ? inlineFromContent(p.content) : []
+      }
+      const headerRow = rows[0]
+      if (!headerRow) return []
+      const headerCells = cellsOf(headerRow)
+      const align = headerCells.map(
+        (c) => (c.attrs?.textAlign as 'left' | 'center' | 'right' | null | undefined) ?? 'left',
+      )
+      return [
+        {
+          type: 'table',
+          header: headerCells.map(inlineOfCell),
+          rows: rows.slice(1).map((r) => cellsOf(r).map(inlineOfCell)),
+          align,
+        },
+      ]
+    }
     case 'codeBlock': {
       // codeBlock 的 content 是纯 text 节点（换行内嵌在文本里）
       const code = (node.content ?? []).map((n) => n.text ?? '').join('').replace(/\n$/, '')

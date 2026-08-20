@@ -54,6 +54,7 @@ function blocksText(blocks: ContentBlock[]): string {
   for (const b of blocks) {
     if (b.type === 'heading' || b.type === 'paragraph' || b.type === 'quote') out.push(inlineTextOf(b.inline))
     else if (b.type === 'list') for (const it of b.items) out.push(inlineTextOf(it))
+    else if (b.type === 'table') for (const row of [b.header, ...b.rows]) for (const cell of row) out.push(inlineTextOf(cell))
     else if (b.type === 'code') out.push(b.code)
   }
   return out.join('')

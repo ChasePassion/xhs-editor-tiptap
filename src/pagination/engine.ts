@@ -166,6 +166,33 @@ function makeBlockEl(block: ContentBlock, avail: { w: number; h: number }): HTML
       }
       return list
     }
+    case 'table': {
+      const table = document.createElement('table')
+      table.className = 'xhs-table'
+      const thead = document.createElement('thead')
+      const headTr = document.createElement('tr')
+      block.header.forEach((cell, i) => {
+        const th = document.createElement('th')
+        th.dataset.align = block.align[i] ?? 'left'
+        domFromInline(cell, th)
+        headTr.appendChild(th)
+      })
+      thead.appendChild(headTr)
+      table.appendChild(thead)
+      const tbody = document.createElement('tbody')
+      for (const row of block.rows) {
+        const tr = document.createElement('tr')
+        row.forEach((cell, i) => {
+          const td = document.createElement('td')
+          td.dataset.align = block.align[i] ?? 'left'
+          domFromInline(cell, td)
+          tr.appendChild(td)
+        })
+        tbody.appendChild(tr)
+      }
+      table.appendChild(tbody)
+      return table
+    }
     case 'divider':
     case 'pagebreak':
       return document.createElement('div')
@@ -184,6 +211,8 @@ function toPageItem(block: ContentBlock, el: HTMLElement, avail: { w: number; h:
       return { kind: 'quote', inline: block.inline }
     case 'list':
       return { kind: 'list', ordered: block.ordered, items: block.items }
+    case 'table':
+      return { kind: 'table', header: block.header, rows: block.rows, align: block.align }
     case 'code': {
       const item: Extract<PageItem, { kind: 'code' }> = { kind: 'code', lang: block.lang, code: block.code }
       if (block.diagram) {
@@ -264,6 +293,29 @@ function bisectTextOffset(
   return lo
 }
 
+/**
+ * 表格行级切分：在 content（可能已含当前页内容）里渲染表格，数出底边还能落在
+ * max 内的正文行数（表头始终保留；续页重复表头，阅读不断档）。
+ */
+function tableRowsFit(
+  block: Extract<ContentBlock, { type: 'table' }>,
+  content: HTMLElement,
+  max: number,
+): number {
+  const el = makeBlockEl(block, { w: 0, h: 0 })
+  content.appendChild(el)
+  const contentTop = content.getBoundingClientRect().top
+  const cs = getComputedStyle(el)
+  const limit = max - (parseFloat(cs.marginBottom) || 0) - (parseFloat(cs.borderBottomWidth) || 0)
+  let fit = 0
+  for (const tr of Array.from(el.querySelectorAll('tbody tr'))) {
+    if (tr.getBoundingClientRect().bottom - contentTop <= limit) fit++
+    else break
+  }
+  content.removeChild(el)
+  return fit
+}
+
 export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateResult {
   const max = availableHeight(host)
   const warnings: string[] = []
@@ -329,11 +381,40 @@ export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateRes
       queue.unshift(block)
       continue
     }
+    // 表格：行级切分 —— 当前页装得下的行先走（表头保留），剩余行进下一页并重复表头
+    if (block.type === 'table' && block.rows.length > 0) {
+      const fit = tableRowsFit(block, content, max)
+      if (fit >= block.rows.length) {
+        // 行都放得下还溢出（margin/border 取整）：整表直接放
+        content.appendChild(el)
+        cur.push(toPageItem(block, el, avail))
+        flush()
+        continue
+      }
+      if (fit > 0) {
+        cur.push({ kind: 'table', header: block.header, rows: block.rows.slice(0, fit), align: block.align })
+        flush()
+        queue.unshift({ ...block, rows: block.rows.slice(fit) })
+        continue
+      }
+      if (cur.length === 0) {
+        warnings.push('表格单行过高，已强制放置（请缩短单元格内容或减少列数）')
+        content.appendChild(el)
+        cur.push(toPageItem(block, el, avail))
+        flush()
+        continue
+      }
+      flush()
+      queue.unshift(block)
+      continue
+    }
     if (cur.length === 0) {
       warnings.push(
         block.type === 'image'
           ? '单张图片高度超过一页，请裁剪或缩小后再用'
-          : `${block.type} 块过高，已强制放置`,
+          : block.type === 'table'
+            ? '表格行过高，已强制放置（请缩短单元格内容或减少列数）'
+            : `${block.type} 块过高，已强制放置`,
       )
       content.appendChild(el)
       cur.push(toPageItem(block, el, avail))

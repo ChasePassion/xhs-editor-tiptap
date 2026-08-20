@@ -190,3 +190,34 @@ ol.xhs-list {
   width: 100%;
   height: 100%;
 }
+
+/* GFM 管道表：字号随正文 bodySize 缩放（0.72em），列宽交给浏览器自动均衡；
+   对齐由 data-align 控制（来自 :--- / :---: / ---:） */
+.xhs-table {
+  width: 100%;
+  margin: 6px 0 22px;
+  border-collapse: collapse;
+  font-size: 0.72em;
+  line-height: 1.5;
+}
+.xhs-table th,
+.xhs-table td {
+  border: 2px solid #e2e5ea;
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.xhs-table th {
+  background: #f6f7f9;
+  font-weight: 700;
+  color: #000;
+}
+.xhs-table th[data-align='center'],
+.xhs-table td[data-align='center'] {
+  text-align: center;
+}
+.xhs-table th[data-align='right'],
+.xhs-table td[data-align='right'] {
+  text-align: right;
+}

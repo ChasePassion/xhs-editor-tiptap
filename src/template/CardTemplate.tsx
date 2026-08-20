@@ -89,6 +89,31 @@ function ItemView({ item, fontFamily }: { item: PageItem; fontFamily: string }) 
           <code>{item.code}</code>
         </pre>
       )
+    case 'table':
+      return (
+        <table className="xhs-table">
+          <thead>
+            <tr>
+              {item.header.map((cell, i) => (
+                <th key={i} data-align={item.align[i] ?? 'left'}>
+                  <InlineText nodes={cell} fontFamily={fontFamily} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {item.rows.map((row, r) => (
+              <tr key={r}>
+                {row.map((cell, i) => (
+                  <td key={i} data-align={item.align[i] ?? 'left'}>
+                    <InlineText nodes={cell} fontFamily={fontFamily} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
     case 'divider':
       return <hr className="xhs-divider" />
   }

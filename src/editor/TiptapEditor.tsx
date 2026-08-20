@@ -25,6 +25,7 @@ import {
   ListOrdered,
   Minus,
   Quote,
+  Table as TableIcon,
   Code2,
 } from 'lucide-react'
 import './editor.css'
@@ -73,6 +74,27 @@ function tokenToBlock(tok: any, images: RawImageAttrs[]): JSONContent | null {
       }
     case 'hr':
       return { type: 'horizontalRule' }
+    case 'table': {
+      // GFM 管道表：首行进 thead（tableHeader），:---: 对齐存进单元格 textAlign
+      const aligns: (string | null)[] = tok.align ?? []
+      const cellOf = (cell: any, i: number, header: boolean) => ({
+        type: header ? 'tableHeader' : 'tableCell',
+        attrs: { textAlign: aligns[i] ?? null },
+        content: [{ type: 'paragraph', content: inlineToMarks(cell?.text ?? '') }],
+      })
+      return {
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: (tok.header ?? []).map((c: any, i: number) => cellOf(c, i, true)),
+          },
+          ...(tok.rows ?? []).map(
+            (r: any[]) => ({ type: 'tableRow', content: r.map((c: any, i: number) => cellOf(c, i, false)) }),
+          ),
+        ],
+      }
+    }
     case 'code':
       // ```mermaid / ```text 等围栏代码块：language 进 attrs，换行内嵌在 text 节点里
       return {
@@ -157,6 +179,25 @@ function blockToMd(node: JSONContent, images: RawImageAttrs[]): string {
       const code = (node.content ?? []).map((c) => c.text ?? '').join('').replace(/\n$/, '')
       const lang = (node.attrs?.language as string) || ''
       return `\`\`\`${lang}\n${code}\n\`\`\``
+    }
+    case 'table': {
+      const cellsOf = (row: JSONContent) => row.content ?? []
+      const headerRow = (node.content ?? [])[0]
+      if (!headerRow) return ''
+      // 对齐标记取表头单元格的 textAlign（与 GFM :--- / :---: / ---: 一一对应）
+      const markerOf = (a?: string | null) => (a === 'center' ? ':---:' : a === 'right' ? '---:' : a === 'left' ? ':---' : '---')
+      const cellMd = (cell: JSONContent) => {
+        const p = (cell.content ?? [])[0]
+        const md = inlineToMd((p?.content ?? []).map((c) => ({ ...c, marks: c.marks ?? [] })))
+        // 单元格里的 | 会破坏管道表结构，必须转义；换行折叠成空格
+        return md.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+      }
+      const lines = [
+        '| ' + cellsOf(headerRow).map(cellMd).join(' | ') + ' |',
+        '| ' + cellsOf(headerRow).map((c) => markerOf(c.attrs?.textAlign as string | null)).join(' | ') + ' |',
+        ...(node.content ?? []).slice(1).map((r) => '| ' + cellsOf(r).map(cellMd).join(' | ') + ' |'),
+      ]
+      return lines.join('\n')
     }
     default:
       return ''
@@ -363,6 +404,14 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
             </Button>
             <Button size="sm" variant="outline" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
               <Minus />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              title="插入 3×3 表格（Markdown 管道表）"
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+            >
+              <TableIcon />
             </Button>
             <input
               ref={fileRef}
