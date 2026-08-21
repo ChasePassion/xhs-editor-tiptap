@@ -159,6 +159,8 @@ function makeBlockEl(block: ContentBlock, avail: { w: number; h: number }): HTML
     case 'list': {
       const list = document.createElement(block.ordered ? 'ol' : 'ul')
       list.className = 'xhs-list'
+      // 分页切出的续页有序列表：从断点编号继续（<ol start>）
+      if (block.ordered && block.start) list.setAttribute('start', String(block.start))
       for (const it of block.items) {
         const li = document.createElement('li')
         domFromInline(it, li)
@@ -210,7 +212,9 @@ function toPageItem(block: ContentBlock, el: HTMLElement, avail: { w: number; h:
     case 'quote':
       return { kind: 'quote', inline: block.inline }
     case 'list':
-      return { kind: 'list', ordered: block.ordered, items: block.items }
+      return block.start
+        ? { kind: 'list', ordered: block.ordered, items: block.items, start: block.start }
+        : { kind: 'list', ordered: block.ordered, items: block.items }
     case 'table':
       return { kind: 'table', header: block.header, rows: block.rows, align: block.align }
     case 'code': {
@@ -316,6 +320,30 @@ function tableRowsFit(
   return fit
 }
 
+/**
+ * 列表条目级切分：在 content（可能已含当前页内容）里渲染列表，数出底边还能落在
+ * max 内的条目数。切出部分后最后一项 margin 归零（:last-child），
+ * 预留 list 自身 margin 即可，方向上只会更宽松。
+ */
+function listItemsFit(
+  block: Extract<ContentBlock, { type: 'list' }>,
+  content: HTMLElement,
+  max: number,
+): number {
+  const el = makeBlockEl(block, { w: 0, h: 0 })
+  content.appendChild(el)
+  const contentTop = content.getBoundingClientRect().top
+  const cs = getComputedStyle(el)
+  const limit = max - (parseFloat(cs.marginBottom) || 0) - (parseFloat(cs.paddingBottom) || 0)
+  let fit = 0
+  for (const li of Array.from(el.children)) {
+    if ((li as HTMLElement).getBoundingClientRect().bottom - contentTop <= limit) fit++
+    else break
+  }
+  content.removeChild(el)
+  return fit
+}
+
 export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateResult {
   const max = availableHeight(host)
   const warnings: string[] = []
@@ -408,13 +436,46 @@ export function paginate(blocks: ContentBlock[], host: MeasureHost): PaginateRes
       queue.unshift(block)
       continue
     }
+    // 列表：条目级切分 —— 当前页装得下的条目先走，剩余条目进下一页（有序列表接续编号）
+    if (block.type === 'list' && block.items.length > 0) {
+      const fit = listItemsFit(block, content, max)
+      if (fit >= block.items.length) {
+        // 条目都放得下还溢出（margin 取整）：整表直接放
+        content.appendChild(el)
+        cur.push(toPageItem(block, el, avail))
+        flush()
+        continue
+      }
+      if (fit > 0) {
+        cur.push(
+          block.start
+            ? { kind: 'list', ordered: block.ordered, items: block.items.slice(0, fit), start: block.start }
+            : { kind: 'list', ordered: block.ordered, items: block.items.slice(0, fit) },
+        )
+        flush()
+        queue.unshift({
+          ...block,
+          items: block.items.slice(fit),
+          start: block.ordered ? (block.start ?? 1) + fit : undefined,
+        })
+        continue
+      }
+      if (cur.length === 0) {
+        warnings.push('列表单项过高，已强制放置（请拆分或缩短该条目）')
+        content.appendChild(el)
+        cur.push(toPageItem(block, el, avail))
+        flush()
+        continue
+      }
+      flush()
+      queue.unshift(block)
+      continue
+    }
     if (cur.length === 0) {
       warnings.push(
         block.type === 'image'
           ? '单张图片高度超过一页，请裁剪或缩小后再用'
-          : block.type === 'table'
-            ? '表格行过高，已强制放置（请缩短单元格内容或减少列数）'
-            : `${block.type} 块过高，已强制放置`,
+          : `${block.type} 块过高，已强制放置`,
       )
       content.appendChild(el)
       cur.push(toPageItem(block, el, avail))

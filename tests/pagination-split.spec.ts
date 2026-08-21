@@ -84,3 +84,64 @@ test('no paragraph is duplicated or lost across the split', async ({ page }) => 
   const joined = pages.flat().map((p) => p.text).join('')
   expect(joined).toBe(`开头段落。${para}结尾段落。`)
 })
+
+// 长列表：每条约两行高，一页放不下 → 必然跨页
+function listMd(ordered: boolean, count: number): string {
+  const item = (i: number) => `第${i}个要点：${'这是一段比较长的说明内容'.repeat(2)}`
+  const lines = Array.from({ length: count }, (_, i) => `${ordered ? `${i + 1}. ` : '- '}${item(i + 1)}`)
+  return `如果直接拿它写代码，会立刻遇到几个无法绕开的现实问题：\n\n${lines.join('\n')}\n`
+}
+
+async function readLists(page: Page) {
+  return page.evaluate(() => {
+    return Array.from(document.querySelectorAll('main .xhs-card')).map((card) => {
+      const list = card.querySelector('ol.xhs-list, ul.xhs-list')
+      if (!list) return null
+      return {
+        tag: list.tagName.toLowerCase(),
+        start: list.getAttribute('start'),
+        items: Array.from(list.querySelectorAll('li')).map((li) => li.textContent ?? ''),
+      }
+    })
+  })
+}
+
+test('bullet list splits by items instead of jumping to the next page whole', async ({ page }) => {
+  await seedContent(page, listMd(false, 24))
+  await paginateNow(page)
+
+  await expect(page.locator('main .xhs-card ul.xhs-list').first()).toContainText('第1个要点')
+  const lists = (await readLists(page)).filter((l): l is NonNullable<typeof l> => l !== null)
+  expect(lists.length).toBeGreaterThanOrEqual(2)
+  // 条目守恒且顺序不变
+  const texts = lists.flatMap((l) => l.items)
+  expect(texts.length).toBe(24)
+  expect(texts[0]).toContain('第1个要点')
+  expect(texts[23]).toContain('第24个要点')
+  // 第一页在引言之后紧接列表（引言和列表第一部分同页）——整块搬家时引言会独占第一页
+  const page1 = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('main .xhs-card'))[0]?.textContent ?? '',
+  )
+  expect(page1).toContain('第1个要点')
+})
+
+test('ordered list splits with numbering continuing across pages', async ({ page }) => {
+  await seedContent(page, listMd(true, 24))
+  await paginateNow(page)
+
+  await expect(page.locator('main .xhs-card ol.xhs-list').first()).toContainText('第1个要点')
+  const lists = (await readLists(page)).filter((l): l is NonNullable<typeof l> => l !== null)
+  expect(lists.length).toBeGreaterThanOrEqual(2)
+  expect(lists.every((l) => l.tag === 'ol')).toBeTruthy()
+
+  const texts = lists.flatMap((l) => l.items)
+  expect(texts.length).toBe(24)
+  // 第一页无 start（从 1 开始），续页 start = 前一页条目数 + 1，逐页接续
+  expect(lists[0].start).toBeNull()
+  let acc = 0
+  for (const l of lists) {
+    if (acc > 0) expect(l.start).toBe(String(acc + 1))
+    acc += l.items.length
+  }
+  expect(acc).toBe(24)
+})

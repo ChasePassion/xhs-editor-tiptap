@@ -54,7 +54,7 @@ function ItemView({ item, fontFamily }: { item: PageItem; fontFamily: string }) 
       )
     case 'list':
       return item.ordered ? (
-        <ol className="xhs-list">
+        <ol className="xhs-list" start={item.start}>
           {item.items.map((it, i) => (
             <li key={i}>
               <InlineText nodes={it} fontFamily={fontFamily} />

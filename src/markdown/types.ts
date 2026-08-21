@@ -14,7 +14,7 @@ export type ContentBlock =
   | { type: 'heading'; level: number; inline: InlineNode[] }
   | { type: 'paragraph'; inline: InlineNode[] }
   | { type: 'image'; src: string; alt?: string; align?: ImageAlign; width?: number }
-  | { type: 'list'; ordered: boolean; items: InlineNode[][] }
+  | { type: 'list'; ordered: boolean; items: InlineNode[][]; start?: number }
   | { type: 'quote'; inline: InlineNode[] }
   | { type: 'code'; lang: string; code: string; diagram?: DiagramSvg }
   | { type: 'table'; header: InlineNode[][]; rows: InlineNode[][][]; align: ('left' | 'center' | 'right')[] }
@@ -25,7 +25,7 @@ export type PageItem =
   | { kind: 'heading'; level: number; inline: InlineNode[] }
   | { kind: 'paragraph'; inline: InlineNode[]; continued?: boolean }
   | { kind: 'image'; src: string; alt?: string; align?: ImageAlign; width?: number }
-  | { kind: 'list'; ordered: boolean; items: InlineNode[][] }
+  | { kind: 'list'; ordered: boolean; items: InlineNode[][]; start?: number }
   | { kind: 'quote'; inline: InlineNode[] }
   | { kind: 'table'; header: InlineNode[][]; rows: InlineNode[][][]; align: ('left' | 'center' | 'right')[] }
   | {
