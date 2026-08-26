@@ -233,7 +233,13 @@ function insertImageFile(view: { state: { schema: { nodes: { image: { create: (a
   })
 }
 
-export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent) => void }) {
+export function TiptapEditor({
+  initialDoc,
+  onDocChange,
+}: {
+  initialDoc?: JSONContent
+  onDocChange: (json: JSONContent) => void
+}) {
   const [mode, setMode] = useState<'rich' | 'raw'>('rich')
   const [rawText, setRawText] = useState<string>('')
   const [cropTarget, setCropTarget] = useState<{ img: HTMLImageElement; pos: number; attrs: Record<string, unknown> } | null>(null)
@@ -243,7 +249,7 @@ export function TiptapEditor({ onDocChange }: { onDocChange: (json: JSONContent)
 
   const editor = useEditor({
     extensions,
-    content: '',
+    content: initialDoc ?? '',
     editorProps: {
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items

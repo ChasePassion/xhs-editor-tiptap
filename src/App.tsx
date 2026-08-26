@@ -11,6 +11,7 @@ import { CardTemplate } from '@/template/CardTemplate'
 import { StylePanel } from '@/controls/StylePanel'
 import { MetaPanel } from '@/controls/MetaPanel'
 import { TiptapEditor } from '@/editor/TiptapEditor'
+import { loadDraft, saveDraft, clearDraft } from '@/storage/draft'
 import { exportElementsAsDataUrls, downloadZip } from '@/export/exportPng'
 import {
   DEFAULT_META,
@@ -27,7 +28,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ChevronDown, Download, RotateCcw, Wand2 } from 'lucide-react'
+import { ChevronDown, Download, FilePlus2, RotateCcw, Wand2 } from 'lucide-react'
 
 const CARD_WIDTH = 1080
 const CARD_HEIGHT = 1440
@@ -63,6 +64,10 @@ function blocksText(blocks: ContentBlock[]): string {
 export default function App() {
   const [style, setStyle] = useState<StyleParams>(loadStyle)
   const [meta, setMeta] = useState<CardMeta>(DEFAULT_META)
+  // initialDoc：undefined = 草稿还在从 IndexedDB 读取；null = 没有草稿，开新文档
+  const [initialDoc, setInitialDoc] = useState<JSONContent | null | undefined>(undefined)
+  const [editorKey, setEditorKey] = useState(0)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
   const [pages, setPages] = useState<Page[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -84,6 +89,61 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('xhs-style', JSON.stringify(style))
   }, [style])
+
+  // 启动时恢复上次草稿（IndexedDB，正文与账号信息都在这一份记录里）
+  useEffect(() => {
+    let cancelled = false
+    void loadDraft().then((draft) => {
+      if (cancelled) return
+      if (draft) {
+        setMeta(draft.meta)
+        setSavedAt(draft.savedAt)
+        setInitialDoc(draft.doc)
+      } else {
+        setInitialDoc(null)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 内容/账号信息变化后防抖写入 IndexedDB；配额满或存储被禁时只提示，不影响编辑
+  useEffect(() => {
+    if (initialDoc === undefined) return
+    const t = setTimeout(() => {
+      if (!docRef.current) return
+      void saveDraft({ doc: docRef.current, meta })
+        .then(setSavedAt)
+        .catch((e) => toast.error('自动保存失败：' + (e as Error).message))
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [docVersion, meta, initialDoc])
+
+  // 用户直接关标签页/切走时立刻补存一次（visibilitychange 比 pagehide 更早、更可靠）
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === 'hidden' && docRef.current) {
+        void saveDraft({ doc: docRef.current, meta }).then(setSavedAt).catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [meta])
+
+  const handleNewDoc = () => {
+    void clearDraft()
+    docRef.current = null
+    setMeta(DEFAULT_META)
+    setPages([])
+    setWarnings([])
+    setError(null)
+    setHasDoc(false)
+    setDocVersion(0)
+    setSavedAt(null)
+    setInitialDoc(null)
+    setEditorKey((k) => k + 1)
+  }
 
   const runPaginate = useCallback(async ({ syncCommit = false }: { syncCommit?: boolean } = {}) => {
     await ensureFontsLoaded()
@@ -164,7 +224,15 @@ export default function App() {
         <h1 className="text-base font-semibold">小红书图文编辑器</h1>
         <Badge variant="secondary">{pages.length} 页</Badge>
         <Badge variant="outline">1080 × 1440</Badge>
+        {savedAt && (
+          <span className="text-muted-foreground text-xs">
+            已自动保存 {new Date(savedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleNewDoc} disabled={!hasDoc}>
+            <FilePlus2 data-icon="inline-start" /> 新建
+          </Button>
           <Button size="sm" onClick={() => void runPaginate()} disabled={!hasDoc}>
             <Wand2 data-icon="inline-start" /> 自动分页
           </Button>
@@ -177,7 +245,11 @@ export default function App() {
 
       <main className="grid grid-cols-[minmax(340px,1fr)_minmax(360px,1.6fr)_300px] gap-4 p-4">
         <section className="bg-background rounded-lg border p-3">
-          <TiptapEditor onDocChange={onDocChange} />
+          {initialDoc === undefined ? (
+            <div className="text-muted-foreground p-8 text-sm">正在恢复草稿…</div>
+          ) : (
+            <TiptapEditor key={editorKey} initialDoc={initialDoc ?? undefined} onDocChange={onDocChange} />
+          )}
         </section>
 
         <section className="bg-background rounded-lg border p-3">
