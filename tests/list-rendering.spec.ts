@@ -63,7 +63,7 @@ test('list items sit tighter than body paragraphs', async ({ page }) => {
     }
   })
   expect(liLH).toBeLessThan(pLH)
-  // 默认样式 bodySize 36、正文行距 1.9：列表封顶 1.5
+  // 默认样式 bodySize 38、正文行距 1.9：列表封顶 1.5
   expect(liLH).toBeCloseTo(bodySize * 1.5, 1)
 })
 

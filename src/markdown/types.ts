@@ -63,7 +63,7 @@ export type StyleParams = {
 
 export const DEFAULT_STYLE: StyleParams = {
   font: 'noto',
-  bodySize: 36,
+  bodySize: 38,
   lineHeight: 1.9,
   letterSpacing: 0,
   padTop: 96,

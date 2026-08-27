@@ -10,7 +10,7 @@
   /* 不在这里设 font-family —— 强制由 makeCssVars 输出 inline fontFamily 字面量 */
   font-synthesis: none;
   font-weight: 400;
-  font-size: var(--xhs-body-size, 36px);
+  font-size: var(--xhs-body-size, 38px);
   line-height: var(--xhs-line-height, 1.9);
   letter-spacing: var(--xhs-letter-spacing, 0px);
   overflow: hidden;
@@ -83,16 +83,16 @@
   display: block;
   width: 100%;
   min-width: 0;
-  font-size: 44px;
+  font-size: 1.4em;
   font-weight: 700;
   color: #000;
   line-height: 1.25;
 }
 .xhs-h[data-level='1'] .xhs-h-text {
-  font-size: 54px;
+  font-size: 1.6em;
 }
 .xhs-h[data-level='3'] .xhs-h-text {
-  font-size: 38px;
+  font-size: 1.2em;
 }
 
 .xhs-p {
