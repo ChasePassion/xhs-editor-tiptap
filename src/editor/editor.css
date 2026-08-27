@@ -30,17 +30,17 @@
   border-color: var(--ring);
 }
 .xhs-editor .ProseMirror h1 {
-  font-size: 1.6em;
+  font-size: 1.8em;
   font-weight: 700;
   margin: 0.6em 0 0.3em;
 }
 .xhs-editor .ProseMirror h2 {
-  font-size: 1.4em;
+  font-size: 1.6em;
   font-weight: 700;
   margin: 0.6em 0 0.3em;
 }
 .xhs-editor .ProseMirror h3 {
-  font-size: 1.2em;
+  font-size: 1.4em;
   font-weight: 700;
   margin: 0.6em 0 0.3em;
 }

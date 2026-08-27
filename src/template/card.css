@@ -83,16 +83,16 @@
   display: block;
   width: 100%;
   min-width: 0;
-  font-size: 1.4em;
+  font-size: 1.6em;
   font-weight: 700;
   color: #000;
   line-height: 1.25;
 }
 .xhs-h[data-level='1'] .xhs-h-text {
-  font-size: 1.6em;
+  font-size: 1.8em;
 }
 .xhs-h[data-level='3'] .xhs-h-text {
-  font-size: 1.2em;
+  font-size: 1.4em;
 }
 
 .xhs-p {
